@@ -14,17 +14,17 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://arcline-autonomous-capital.ming-8832.chatgpt.site"),
-  title: "Arcline — Autonomous Capital",
-  description: "A clear, premium view of your AI-managed portfolio performance, risk, and trading activity.",
+  title: "Arcline — Trade Verification Firewall",
+  description: "Live portfolio snapshots, verification decisions, and linked trade execution status.",
   openGraph: {
-    title: "Arcline — Autonomous Capital",
-    description: "AI-managed portfolio performance and reporting.",
+    title: "Arcline — Trade Verification Firewall",
+    description: "Live portfolio snapshots, verification decisions, and linked trade execution status.",
     images: ["/og.png"],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Arcline — Autonomous Capital",
-    description: "AI-managed portfolio performance and reporting.",
+    title: "Arcline — Trade Verification Firewall",
+    description: "Live portfolio snapshots, verification decisions, and linked trade execution status.",
     images: ["/og.png"],
   },
 };
@@ -33,6 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>

@@ -1,9 +1,14 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  EXECUTIONS_TABLE,
+  getSupabaseAdmin,
+  publicDatabaseError,
+  VERIFICATIONS_TABLE,
+} from "../../../lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
-const TABLE = "Trade Verification node";
-const GROUPING_WINDOW = 500;
+const GROUPING_WINDOW = 1000;
 const GROUP_CACHE_TTL = 15_000;
 const responseHeaders = {
   "Cache-Control": "private, no-store, max-age=0",
@@ -45,7 +50,7 @@ async function loadContractGroups(supabase: SupabaseClient) {
   if (groupCache && groupCache.expiresAt > Date.now()) return groupCache.groups;
 
   const { data, error } = await supabase
-    .from(TABLE)
+    .from(VERIFICATIONS_TABLE)
     .select("id, created_at, symbol, confidence, approved")
     .not("symbol", "is", null)
     .order("created_at", { ascending: false })
@@ -127,20 +132,42 @@ async function contractListResponse(supabase: SupabaseClient, requestUrl: URL) {
 async function contractDetailResponse(supabase: SupabaseClient, requestUrl: URL, contract: string) {
   const { page, pageSize, from, to } = getPagination(requestUrl.searchParams, 10);
   const { data, error, count } = await supabase
-    .from(TABLE)
-    .select("id, created_at, symbol, side, qty, confidence, approved, reason", { count: "exact" })
+    .from(VERIFICATIONS_TABLE)
+    .select("id, created_at, symbol, side, qty, confidence, approved, reason, rule_results", { count: "exact" })
     .eq("symbol", contract)
     .order("created_at", { ascending: false })
     .range(from, to);
 
   if (error) throw error;
 
+  const verificationIds = (data ?? []).map((row) => row.id);
+  const executionResult = verificationIds.length
+    ? await supabase
+      .from(EXECUTIONS_TABLE)
+      .select("id, verification_id, broker_order_id, status, submitted_at, filled_at, filled_qty, average_fill_price, fees, failure_reason, updated_at")
+      .in("verification_id", verificationIds)
+      .order("updated_at", { ascending: false })
+    : { data: [], error: null };
+
+  if (executionResult.error) throw executionResult.error;
+  const executionsByVerification = new Map<number, typeof executionResult.data>();
+  for (const execution of executionResult.data ?? []) {
+    const verificationId = Number(execution.verification_id);
+    executionsByVerification.set(verificationId, [
+      ...(executionsByVerification.get(verificationId) ?? []),
+      execution,
+    ]);
+  }
+
   const groups = await loadContractGroups(supabase);
   const summary = groups.find((group) => group.symbol === contract) ?? null;
   const totalItems = count ?? 0;
 
   return Response.json({
-    data: data ?? [],
+    data: (data ?? []).map((verification) => ({
+      ...verification,
+      executions: executionsByVerification.get(verification.id) ?? [],
+    })),
     summary,
     pagination: {
       page,
@@ -152,33 +179,22 @@ async function contractDetailResponse(supabase: SupabaseClient, requestUrl: URL,
 }
 
 export async function GET(request: Request) {
-  const url = process.env.SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_STAGING_SERVICE_ROLE_KEY;
-
-  if (!url || !serviceRoleKey) {
-    return Response.json(
-      { error: "Staging data connection is not configured." },
-      { status: 503, headers: responseHeaders },
-    );
-  }
-
-  const supabase = createClient(url, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
   const requestUrl = new URL(request.url);
   const contract = requestUrl.searchParams.get("contract")?.trim();
 
   try {
+    const supabase = getSupabaseAdmin();
     return contract
       ? await contractDetailResponse(supabase, requestUrl, contract)
       : await contractListResponse(supabase, requestUrl);
   } catch (error) {
+    const problem = publicDatabaseError(error);
     return Response.json(
       {
         error: "Supabase could not return trade verification data.",
-        detail: error instanceof Error ? error.message : "Unknown Supabase error.",
+        detail: problem.message,
       },
-      { status: 502, headers: responseHeaders },
+      { status: problem.status, headers: responseHeaders },
     );
   }
 }

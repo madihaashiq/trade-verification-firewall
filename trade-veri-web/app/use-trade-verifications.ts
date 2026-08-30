@@ -11,6 +11,22 @@ export type TradeVerification = {
   confidence: number;
   approved: boolean;
   reason: string;
+  rule_results: unknown;
+  executions: TradeExecutionDetail[];
+};
+
+export type TradeExecutionDetail = {
+  id: number;
+  verification_id: number;
+  broker_order_id: string | null;
+  status: string | null;
+  submitted_at: string | null;
+  filled_at: string | null;
+  filled_qty: number | null;
+  average_fill_price: number | null;
+  fees: number | null;
+  failure_reason: string | null;
+  updated_at: string | null;
 };
 
 export type ContractGroup = {
@@ -53,6 +69,8 @@ export function normalizeTrade(input: unknown): TradeVerification {
     reason: typeof trade.reason === "string" && trade.reason.trim()
       ? trade.reason
       : "No decision rationale was provided for this verification.",
+    rule_results: trade.rule_results ?? null,
+    executions: Array.isArray(trade.executions) ? trade.executions as TradeExecutionDetail[] : [],
   };
 }
 
@@ -75,6 +93,8 @@ export function useContractGroups(page: number, searchQuery: string, pageSize = 
   const [stats, setStats] = useState(emptyStats);
   const [connection, setConnection] = useState<ConnectionState>("connecting");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [settledRequestKey, setSettledRequestKey] = useState("");
+  const requestKey = `${page}:${pageSize}:${searchQuery.trim().toLowerCase()}`;
 
   useEffect(() => {
     let active = true;
@@ -109,6 +129,8 @@ export function useContractGroups(page: number, searchQuery: string, pageSize = 
         if (!active || (error instanceof DOMException && error.name === "AbortError")) return;
         setConnection("error");
         setErrorMessage("The staging feed could not be reached.");
+      } finally {
+        if (active) setSettledRequestKey(requestKey);
       }
     };
 
@@ -121,7 +143,7 @@ export function useContractGroups(page: number, searchQuery: string, pageSize = 
       window.clearTimeout(searchDelay);
       window.clearInterval(pollingInterval);
     };
-  }, [page, pageSize, searchQuery]);
+  }, [page, pageSize, requestKey, searchQuery]);
 
-  return { groups, pagination, connection, errorMessage, stats };
+  return { groups, pagination, connection, errorMessage, isLoading: settledRequestKey !== requestKey, stats };
 }

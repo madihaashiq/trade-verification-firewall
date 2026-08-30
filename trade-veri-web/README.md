@@ -1,36 +1,35 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Arcline trade verification firewall
 
-## Getting Started
+A Next.js operations dashboard backed by Supabase. It exposes only features supported by the current database:
 
-First, run the development server:
+- portfolio value, net P&L, and daily return history from `pnl_snapshots`;
+- grouped and detailed decisions from `Trade Verification node`;
+- execution lifecycle data joined through `trade_executions.verification_id`;
+- a server-generated JSON export of all three tables.
+
+## Local setup
+
+Copy `.env.example` to `.env` and set the project URL and service-role key. The service-role key is intentionally read only by Next.js route handlers and must never use a `NEXT_PUBLIC_` prefix.
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Data relationship
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`trade_executions.verification_id` links to `Trade Verification node.id`. P&L snapshots are time-series portfolio records and are not directly related to an individual verification.
 
-## Learn More
+The dashboard refreshes every 15 seconds. If `trade_executions` is empty, the execution section displays a connected empty state and populates automatically when records arrive.
 
-To learn more about Next.js, take a look at the following resources:
+## Docker
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Build and run the production container with the existing local credentials:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+docker compose up --build
+```
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Open [http://localhost:3000](http://localhost:3000). Set `APP_PORT` before starting Compose if port 3000 is already in use. The Compose file reads `.env` only at runtime; credentials are not copied into the image.

@@ -71,9 +71,9 @@ export default function ContractDetail({ symbol }: { symbol: string }) {
       <header className="contract-topbar">
         <Link className="contract-brand" href="/">
           <BrandMark />
-          <span><strong>Arcline</strong><small>Autonomous capital</small></span>
+          <span><strong>Arcline</strong><small>Verification firewall</small></span>
         </Link>
-        <span className="secure-connection"><ShieldCheck size={15} /> Staging feed connected</span>
+        <span className="secure-connection"><ShieldCheck size={15} /> Supabase connected</span>
       </header>
 
       <section className="contract-content">
@@ -83,7 +83,7 @@ export default function ContractDetail({ symbol }: { symbol: string }) {
             <span className="contract-monogram">{underlying.slice(0, 2)}</span>
             <div><p>Trade verification history</p><h1>{underlying}</h1><code>{symbol}</code></div>
           </div>
-          <div className="contract-status"><i /> Autonomous monitoring active</div>
+          <div className="contract-status"><i /> Live database record</div>
         </div>
 
         <section className="contract-stat-grid" aria-label="Contract summary">
@@ -101,7 +101,7 @@ export default function ContractDetail({ symbol }: { symbol: string }) {
 
           {errorMessage && <div className="contract-error"><XCircle size={15} /> {errorMessage}</div>}
           <div className="action-columns"><span>Action</span><span>Direction</span><span>Quantity</span><span>Decision</span><span>Logged</span><span aria-hidden="true" /></div>
-          <div className="action-list">
+          <div className={`action-list ${loading && actions.length ? "is-loading" : ""}`} aria-busy={loading}>
             {loading ? <div className="contract-empty"><span className="loading-orb" /> Loading contract actions…</div> : actions.length ? actions.map((action) => {
               const tone = action.approved ? "approved" : "rejected";
               return (
@@ -120,11 +120,21 @@ export default function ContractDetail({ symbol }: { symbol: string }) {
                       <span><i style={{ width: `${action.confidence}%` }} /></span>
                     </div>
                     <div className="action-rationale"><span className={`reason-mark ${tone}`}><BrainCircuit size={17} /></span><div><small>AI decision rationale</small><p>{action.reason}</p></div></div>
-                    <dl><div><dt>Contract</dt><dd>{action.symbol}</dd></div><div><dt>Side</dt><dd>{action.side}</dd></div><div><dt>Quantity</dt><dd>{action.qty}</dd></div></dl>
+                    <dl><div><dt>Contract</dt><dd>{action.symbol}</dd></div><div><dt>Side</dt><dd>{action.side}</dd></div><div><dt>Quantity</dt><dd>{action.qty}</dd></div><div><dt>Execution</dt><dd>{action.executions.length ? `${action.executions.length} linked` : "Not submitted"}</dd></div></dl>
+                    {action.executions.length > 0 && <div className="linked-executions">
+                      {action.executions.map((execution) => <div key={execution.id}>
+                        <span><small>Execution #{execution.id}</small><strong>{execution.status ?? "Unknown status"}</strong></span>
+                        <span><small>Broker order</small><strong>{execution.broker_order_id ?? "Not assigned"}</strong></span>
+                        <span><small>Filled</small><strong>{execution.filled_qty ?? 0}{execution.average_fill_price == null ? "" : ` @ $${Number(execution.average_fill_price).toFixed(2)}`}</strong></span>
+                        <span><small>Fees</small><strong>{execution.fees == null ? "—" : `$${Number(execution.fees).toFixed(2)}`}</strong></span>
+                        {execution.failure_reason && <p>{execution.failure_reason}</p>}
+                      </div>)}
+                    </div>}
                   </div>
                 </details>
               );
             }) : <div className="contract-empty"><Search size={18} /> No actions were found for this contract.</div>}
+            {loading && actions.length > 0 && <div className="table-loader contract-table-loader" role="status"><span className="loading-orb" /> Loading actions…</div>}
           </div>
 
           <div className="table-pagination contract-pagination">
