@@ -5,7 +5,7 @@ A Next.js operations dashboard backed by Supabase. It exposes only features supp
 - portfolio value, net P&L, and daily return history from `pnl_snapshots`;
 - grouped and detailed decisions from `Trade Verification node`;
 - execution lifecycle data joined through `trade_executions.verification_id`;
-- a server-generated JSON export of all three tables.
+- a server-generated JSON export of all three tables (requires the `EXPORT_ACCESS_KEY` environment variable to be set — disabled by default).
 
 ## Local setup
 

@@ -33,6 +33,12 @@ type ContractGroup = {
   latestApproved: boolean;
 };
 
+// A module-level cache is fine on the Node runtime (Docker), but Cloudflare
+// Workers do not share module state between isolates - caching there would
+// serve inconsistent pagination/totals between requests, so it is disabled
+// when running on the Edge runtime.
+const canUseModuleCache = process.env.NEXT_RUNTIME !== "edge";
+
 let groupCache: { expiresAt: number; groups: ContractGroup[] } | null = null;
 
 function getPagination(searchParams: URLSearchParams, defaultPageSize: number) {
@@ -47,7 +53,7 @@ function normalizeSymbol(value: unknown) {
 }
 
 async function loadContractGroups(supabase: SupabaseClient) {
-  if (groupCache && groupCache.expiresAt > Date.now()) return groupCache.groups;
+  if (canUseModuleCache && groupCache && groupCache.expiresAt > Date.now()) return groupCache.groups;
 
   const { data, error } = await supabase
     .from(VERIFICATIONS_TABLE)
@@ -70,7 +76,7 @@ async function loadContractGroups(supabase: SupabaseClient) {
         symbol,
         actionCount: 1,
         approvedCount: row.approved === true ? 1 : 0,
-        rejectedCount: row.approved === true ? 0 : 1,
+        rejectedCount: row.approved === false ? 1 : 0,
         averageConfidence: confidence,
         confidenceTotal: confidence,
         latestAt: row.created_at ?? new Date(0).toISOString(),
@@ -81,7 +87,7 @@ async function loadContractGroups(supabase: SupabaseClient) {
 
     existing.actionCount += 1;
     existing.approvedCount += row.approved === true ? 1 : 0;
-    existing.rejectedCount += row.approved === true ? 0 : 1;
+    existing.rejectedCount += row.approved === false ? 1 : 0;
     existing.confidenceTotal += confidence;
     existing.averageConfidence = Math.round(existing.confidenceTotal / existing.actionCount);
   }
@@ -95,7 +101,7 @@ async function loadContractGroups(supabase: SupabaseClient) {
     latestAt: group.latestAt,
     latestApproved: group.latestApproved,
   }));
-  groupCache = { groups, expiresAt: Date.now() + GROUP_CACHE_TTL };
+  if (canUseModuleCache) groupCache = { groups, expiresAt: Date.now() + GROUP_CACHE_TTL };
   return groups;
 }
 
