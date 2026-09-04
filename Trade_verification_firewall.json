@@ -1,0 +1,954 @@
+{
+  "name": "Trade verification firewall",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 9-15 * * 1-5"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -2512,
+        -896
+      ],
+      "id": "66210547-790d-4b17-8e9d-e57c54120e3e",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://data.alpaca.markets/v1beta1/options/snapshots/AAPL",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "APCA-API-KEY-ID",
+              "value": ""
+            },
+            {
+              "name": "APCA-API-SECRET-KEY",
+              "value": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -2272,
+        -768
+      ],
+      "id": "08038058-3aec-4395-93b4-ebe87f916d0d",
+      "name": "alapca",
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "WJ63PiXjihFBDDtm",
+          "name": "Custom Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  contents: [\n    {\n      parts: [\n        {\n          text: `You are an options trading signal generator. Analyze the following market data and propose ONE specific options trade with a clear directional thesis.\n\nAvailable option contracts:\n${JSON.stringify($json.option_contracts)}\n\nMarket snapshot data (price, volume, quotes):\n${JSON.stringify($json.snapshots)}\n\nCRITICAL RULE: The \"symbol\" you return MUST be copied EXACTLY, character-for-character, from one of the entries in the \"option_contracts\" list above. Do NOT construct, generate, guess, or modify any part of a symbol yourself — including the expiration date, strike price, or option type letter. Before finalizing your answer, verify that your chosen symbol appears verbatim in \"option_contracts\" AND as a key in \"snapshots\". If no contract in the list fits your thesis, or if you are not 100% certain the exact symbol exists in both lists, you MUST return action \"HOLD\" instead of guessing.\n\nBased on this data, decide whether to propose a trade or hold. Make sure the symbol you choose also exists as a key in the \"snapshots\" object so you can justify the trade using its actual price/volume data.\n\nRespond ONLY in this exact JSON shape, no extra text:\n{\"action\": \"TRADE or HOLD\", \"symbol\": \"exact OCC option symbol or null\", \"side\": \"buy or sell or null\", \"qty\": 1, \"order_type\": \"market\", \"reasoning\": \"2-3 sentence thesis\", \"confidence\": 0-100}\n\nIf action is \"HOLD\", set symbol, side, qty, and order_type to null.`\n        }\n      ]\n    }\n  ]\n}\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -1808,
+        -896
+      ],
+      "id": "a6e88c74-89da-4197-8fba-e9b99a09994b",
+      "name": "Gemini"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.requestBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -1040,
+        -896
+      ],
+      "id": "464bd743-cf4b-496a-88d6-0d1140fd2178",
+      "name": "verifier"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://paper-api.alpaca.markets/v2/orders",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"symbol\": \"{{ $json.symbol }}\",\n  \"qty\": \"{{ $json.qty }}\",\n  \"side\": \"{{ $json.side }}\",\n  \"type\": \"{{ $json.order_type }}\",\n  \"time_in_force\": \"day\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -1072,
+        -448
+      ],
+      "id": "2a3b8e64-c887-4a6f-b233-dc8b2da45bd9",
+      "name": "place order",
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "WJ63PiXjihFBDDtm",
+          "name": "Custom Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1pwFfdPqV8uwJwVhyiWofhjGg9najLUdYxD8Q3Gboin4",
+          "mode": "list",
+          "cachedResultName": "Trade Verification Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1pwFfdPqV8uwJwVhyiWofhjGg9najLUdYxD8Q3Gboin4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1pwFfdPqV8uwJwVhyiWofhjGg9najLUdYxD8Q3Gboin4/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $now }}",
+            "Symbol": "={{ $('code 1').item.json.symbol }}",
+            "Signal (Buy/Sell)": "={{ $('code 1').item.json.side }}",
+            "Verification_Status (Approved/Blocked)": "={{ $('code 2').item.json.approved ? 'Approved' : 'Blocked' }}",
+            "Signal_Reason": "={{ $('code 1').item.json.reasoning }}",
+            "Block_Reason": "={{ $('code 2').item.json.approved ? '' : $('code 2').item.json.reason }}",
+            "Confidence_Score": "={{ $('code 2').item.json.confidence }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Symbol",
+              "displayName": "Symbol",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Signal (Buy/Sell)",
+              "displayName": "Signal (Buy/Sell)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Signal_Reason",
+              "displayName": "Signal_Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Verification_Status (Approved/Blocked)",
+              "displayName": "Verification_Status (Approved/Blocked)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Block_Reason",
+              "displayName": "Block_Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Price_At_Signal",
+              "displayName": "Price_At_Signal",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Confidence_Score",
+              "displayName": "Confidence_Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -800,
+        -592
+      ],
+      "id": "fe92f065-612a-48ec-82b3-c214bd2037f2",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "eQZXPLJAPcA3FPOY",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://paper-api.alpaca.markets/v2/options/contracts?underlying_symbols=AAPL",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -2256,
+        -1024
+      ],
+      "id": "d7d2dd07-45b6-4bf5-bf23-2910b11cfef2",
+      "name": "options contracts",
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "WJ63PiXjihFBDDtm",
+          "name": "Custom Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.candidates[0].content.parts[0].text;\nconst cleaned = raw.replace(/```json|```/g, '').trim();\nconst parsed = JSON.parse(cleaned);\n\n// Safety net: verify the symbol actually exists in the real contract list\nif (parsed.action === 'TRADE') {\n  const validContracts = $json.option_contracts.map(c => c.symbol);\n  if (!validContracts.includes(parsed.symbol)) {\n    return [{\n      json: {\n        ...parsed,\n        action: 'HOLD',\n        symbol: null,\n        side: null,\n        qty: null,\n        order_type: null,\n        reasoning: `Safety override: Gemini proposed symbol \"${parsed.symbol}\" which does not exist in the fetched contract list. Defaulting to HOLD.`\n      }\n    }];\n  }\n}\n\nreturn [{ json: parsed }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1648,
+        -896
+      ],
+      "id": "c9690eac-233d-48aa-8727-1d0284983d53",
+      "name": "code 1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.candidates[0].content.parts[0].text;\nconst cleaned = raw.replace(/```json|```/g, '').trim();\nconst verifierResult = JSON.parse(cleaned);\nconst original = $('code 1').first().json;\n\nconst merged = {\n  action: original.action,\n  symbol: original.symbol,\n  side: original.side,\n  qty: original.qty,\n  order_type: original.order_type,\n  approved: verifierResult.approved,\n  confidence: verifierResult.confidence,\n  reason: verifierResult.reason,\n  rule_results: verifierResult.rule_results\n};\n\nreturn [{ json: merged }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1952,
+        -384
+      ],
+      "id": "ea79f24a-81f3-4ca2-828a-2c1472ad1cfa",
+      "name": "code 2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "83ec331d-5a79-4cdb-b8f2-40fce3ecf176",
+              "leftValue": "={{ $json.approved }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "91566054-aa99-4f1e-bdf3-cea606cf72e5",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "TRADE",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "83518c80-4e1f-4d3a-ba10-f1f5da95a21b",
+              "leftValue": "={{ $json.confidence }}",
+              "rightValue": 80,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        -1600,
+        -592
+      ],
+      "id": "94bfe0fa-d877-41b4-b4c1-caba916a38bc",
+      "name": "gate allow"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fbc2354f-aaa0-4496-b1b4-fa46b4f8d49b",
+              "leftValue": "={{ !($json.approved === true && $json.action === 'TRADE' && $json.confidence >= 80) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        -1760,
+        -192
+      ],
+      "id": "2f0a43b7-46fb-430c-8c2a-eed023adcb03",
+      "name": "gate blocker"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Trade Verification node",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "approved",
+              "condition": "eq",
+              "keyValue": "true"
+            },
+            {
+              "keyName": "created_at",
+              "condition": "gte",
+              "keyValue": "={{ $today.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1392,
+        -592
+      ],
+      "id": "5942c5df-0748-46a4-b67d-520b4d78cdc1",
+      "name": "Get many rows",
+      "credentials": {
+        "supabaseApi": {
+          "id": "j1s4u0H9f5JCVt09",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "219128e2-b39a-4aef-9d64-1c370a377ff2",
+              "leftValue": "={{ $json.approved }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "533600a7-89d0-4e04-8310-e68d762ccc14",
+              "leftValue": "{{ $json.action }}",
+              "rightValue": "TRADE",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1296,
+        -368
+      ],
+      "id": "a5ed28db-f274-4d35-8cda-365708528cea",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst tradeCount = items.length;\nconst DAILY_LIMIT = 9999;\n\nif (tradeCount >= DAILY_LIMIT) {\n  return [{\n    json: {\n      ...($('code 2').first().json),\n      approved: false,\n      reason: `Daily trade limit of ${DAILY_LIMIT} reached (${tradeCount} trades today)`\n    }\n  }];\n}\n\nreturn [{ json: $('code 2').first().json }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1568,
+        -368
+      ],
+      "id": "f07d21a5-4d2d-4ee1-8ec7-ff6061cafc0a",
+      "name": "Code 3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const order = $input.first().json;\n\nreturn [{\n  json: {\n    verification_id: $('verification').first().json.id,\n    broker_order_id: order.id,\n    status: order.status,\n    submitted_at: order.submitted_at,\n    filled_at: order.filled_at || null,\n    filled_qty: order.filled_qty || 0,\n    average_fill_price: order.filled_avg_price || null,\n    failure_reason: order.status === 'rejected' ? order.reject_reason : null\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -464,
+        -240
+      ],
+      "id": "ce1561b9-d97f-4d1a-80d9-e0d157d44e1b",
+      "name": "format execution"
+    },
+    {
+      "parameters": {
+        "tableId": "trade_executions",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "verification_id",
+              "fieldValue": "={{ $json.verification_id }}"
+            },
+            {
+              "fieldId": "broker_order_id",
+              "fieldValue": "={{ $json.broker_order_id }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.status }}"
+            },
+            {
+              "fieldId": "submitted_at",
+              "fieldValue": "={{ $json.submitted_at }}"
+            },
+            {
+              "fieldId": "filled_qty",
+              "fieldValue": "={{ $json.filled_qty }}"
+            },
+            {
+              "fieldId": "average_fill_price",
+              "fieldValue": "={{ $json.average_fill_price }}"
+            },
+            {
+              "fieldId": "failure_reason",
+              "fieldValue": "={{ $json.failure_reason }}"
+            },
+            {
+              "fieldId": "filled_at",
+              "fieldValue": "={{ $json.filled_at }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -272,
+        -240
+      ],
+      "id": "65e30936-8aa0-4790-8803-1ea341d4de00",
+      "name": "Create a row2",
+      "credentials": {
+        "supabaseApi": {
+          "id": "j1s4u0H9f5JCVt09",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $('code 1').item.json;\nconst recentTrades = $input.all(); // rows from Get many rows1\nconst sameSymbolCount = recentTrades.length;\n\nconst { reasoning, confidence, ...rest } = item;\nconst verifierInput = { ...rest, recent_trades_on_symbol: sameSymbolCount };\n\nconst prompt = `You are a risk verifier for an options trading signal. You do NOT have access to the proposer's stated reasoning or confidence score — evaluate this trade independently based only on the trade parameters below:\n${JSON.stringify(verifierInput)}\nIf ANY rule_result is \"failed\", set approved to false regardless of other factors — a failed risk rule is an automatic veto, not one factor among several.\n\nCheck the following, using only the trade parameters given (no reasoning text is available to you):\n1. Is the symbol a well-formed, plausible options contract identifier (correct format: underlying, expiry, strike, call/put)?\n2. Is the side/qty reasonable on its own terms (e.g. qty <= 1 for a single-position test strategy)?\n3. Does the action type (TRADE/HOLD) and order_type make sense as a valid, executable instruction?\n4. Would this trade fit prudent risk management for a single-position size (qty 1, not oversized)?\nIf action is \"HOLD\", confirm holding is a safe default and set approved to true.\nAlso evaluate these specific risk rules and report pass/fail for each, based only on the trade parameters:\n- position_limit: does qty stay within a safe single-position size (qty <= 1)?\n- daily_loss_limit: does the order type/side avoid unbounded exposure (e.g. market order vs. unlimited size)?\n- concentration_limit: does recent_trades_on_symbol exceed 2 in the lookback window? If so, fail; otherwise pass.\nRespond ONLY in valid JSON, no extra text, in this exact shape:\n{\"approved\": true or false, \"confidence\": 0-100, \"reason\": \"short explanation\", \"rule_results\": {\"position_limit\": \"passed\" or \"failed\", \"daily_loss_limit\": \"passed\" or \"failed\", \"concentration_limit\": \"passed\" or \"failed\"}}`;\n\nconst requestBody = {\n  contents: [\n    {\n      parts: [\n        { text: prompt }\n      ]\n    }\n  ]\n};\nreturn [{ json: { requestBody } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1280,
+        -896
+      ],
+      "id": "ebe4e74b-81ef-4cac-a34b-89ac90522f64",
+      "name": "builds verifier prompt"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Trade Verification node",
+        "orderBy": "created_at",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "symbol",
+              "condition": "eq",
+              "keyValue": "={{ $json.symbol }}"
+            },
+            {
+              "keyName": "created_at",
+              "condition": "gte",
+              "keyValue": "={{ $now.minus({hours: 24}).toISO() }}"
+            },
+            {
+              "keyName": "approved",
+              "condition": "eq",
+              "keyValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1456,
+        -896
+      ],
+      "id": "ff9b87f2-f14e-4c0b-9139-0a876d985b47",
+      "name": "Get many rows1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "j1s4u0H9f5JCVt09",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -832,
+        -240
+      ],
+      "id": "2c3c022f-697f-4110-96b5-d4eeb2ec1048",
+      "name": "Wait",
+      "webhookId": "80486bd9-32cc-462c-b9ed-58bd3481fffc"
+    },
+    {
+      "parameters": {
+        "url": "https://paper-api.alpaca.markets/v2/orders/{{ $('place order').item.json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "APCA-API-KEY-ID",
+              "value": "PKNRNU7BI4BDQTSLV5LUVSST3M"
+            },
+            {
+              "name": "APCA-API-SECRET-KEY",
+              "value": "2eKXkYUtkt6S1CYNuJLRbhGEhnVipxZMLgRxPzsmftBN"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -640,
+        -240
+      ],
+      "id": "c4341213-4ef6-4a84-9fbc-30001c93efae",
+      "name": "Fetch Updated Order Status",
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "WJ63PiXjihFBDDtm",
+          "name": "Custom Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "=Trade Verification node",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "symbol",
+              "fieldValue": "={{ $('code 1').item.json.symbol }}"
+            },
+            {
+              "fieldId": "side",
+              "fieldValue": "={{ $('code 1').item.json.side }}"
+            },
+            {
+              "fieldId": "qty",
+              "fieldValue": "={{ $('code 1').item.json.qty }}"
+            },
+            {
+              "fieldId": "confidence",
+              "fieldValue": "={{ $('code 1').item.json.confidence }}"
+            },
+            {
+              "fieldId": "approved",
+              "fieldValue": "=true"
+            },
+            {
+              "fieldId": "reason",
+              "fieldValue": "={{ $json.reason }}"
+            },
+            {
+              "fieldId": "rule_results",
+              "fieldValue": "={{ JSON.stringify($json.rule_results) }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1776,
+        -592
+      ],
+      "id": "25526a0f-b5db-491c-9fc2-3aaf55a4bf22",
+      "name": "verification",
+      "credentials": {
+        "supabaseApi": {
+          "id": "j1s4u0H9f5JCVt09",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "alapca",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "options contracts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "alapca": {
+      "main": [
+        [
+          {
+            "node": "Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini": {
+      "main": [
+        [
+          {
+            "node": "code 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "verifier": {
+      "main": [
+        [
+          {
+            "node": "code 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        []
+      ]
+    },
+    "options contracts": {
+      "main": [
+        [
+          {
+            "node": "Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "place order": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code 1": {
+      "main": [
+        [
+          {
+            "node": "Get many rows1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code 2": {
+      "main": [
+        [
+          {
+            "node": "gate blocker",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "verification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "gate allow": {
+      "main": [
+        [
+          {
+            "node": "Get many rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "gate blocker": {
+      "main": [
+        []
+      ]
+    },
+    "Get many rows": {
+      "main": [
+        [
+          {
+            "node": "Code 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "place order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Code 3": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "format execution": {
+      "main": [
+        [
+          {
+            "node": "Create a row2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "builds verifier prompt": {
+      "main": [
+        [
+          {
+            "node": "verifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows1": {
+      "main": [
+        [
+          {
+            "node": "builds verifier prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Fetch Updated Order Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Updated Order Status": {
+      "main": [
+        [
+          {
+            "node": "format execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "verification": {
+      "main": [
+        [
+          {
+            "node": "gate allow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "timezone": "America/New_York",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "73344355-632a-47ff-a22b-7c94febc0192",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dabeb6992e570e0780d0974f2aec6efde658321c9ec02dd403c2655b37698c43"
+  },
+  "nodeGroups": [],
+  "id": "XUI9euHGAIpaFmws",
+  "tags": []
+}
