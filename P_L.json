@@ -1,0 +1,181 @@
+{
+  "name": "P&L",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/5 9-15 * * 1-5"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -672,
+        -16
+      ],
+      "id": "6cb3c80d-1349-4181-8cf4-5cd23bf08a6a",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst results = [];\n\nfor (let i = 0; i < data.timestamp.length; i++) {\n  results.push({\n    json: {\n      captured_at: new Date(data.timestamp[i] * 1000).toISOString(),\n      portfolio_value: data.equity[i],\n      net_pnl: data.profit_loss[i],\n      daily_return_pct: data.profit_loss_pct[i] * 100\n    }\n  });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        96,
+        -16
+      ],
+      "id": "7757c49f-6d1a-4b6b-aa54-3a4b10e608f3",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "tableId": "=pnl_snapshots",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "captured_at",
+              "fieldValue": "={{ $json.captured_at }}"
+            },
+            {
+              "fieldId": "portfolio_value",
+              "fieldValue": "={{ $json.portfolio_value }}"
+            },
+            {
+              "fieldId": "net_pnl",
+              "fieldValue": "={{ $json.net_pnl }}"
+            },
+            {
+              "fieldId": "daily_return_pct",
+              "fieldValue": "={{ $json.daily_return_pct }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        480,
+        -16
+      ],
+      "id": "3c81432a-749f-4785-8913-11ca52ce359d",
+      "name": "p&l",
+      "credentials": {
+        "supabaseApi": {
+          "id": "j1s4u0H9f5JCVt09",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://paper-api.alpaca.markets/v2/account/portfolio/history",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "period",
+              "value": "1D"
+            },
+            {
+              "name": "timeframe",
+              "value": "1D"
+            },
+            {
+              "name": "extended_hours",
+              "value": "false"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "APCA-API-KEY-ID",
+              "value": "YOUR_ALPACA_API_KEY_ID"
+            },
+            {
+              "name": "APCA-API-SECRET-KEY",
+              "value": "YOUR_ALPACA_SECRET_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -304,
+        -16
+      ],
+      "id": "de2b817d-3a4c-4dc3-815c-b9278e23e096",
+      "name": "alpaca",
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "WJ63PiXjihFBDDtm",
+          "name": "Custom Auth account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "alpaca",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "p&l",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "alpaca": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "timezone": "America/New_York",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "be6a86da-790e-44d3-9331-1f5930c90925",
+  "meta": {
+    "instanceId": "dabeb6992e570e0780d0974f2aec6efde658321c9ec02dd403c2655b37698c43"
+  },
+  "nodeGroups": [],
+  "id": "ISKGb8tBMk6PLxWD",
+  "tags": []
+}
